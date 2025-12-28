@@ -1,90 +1,95 @@
-import React, { useState } from 'react';
-import { Drawer, List, ListItem, ListItemText, Divider, Avatar, Button, Typography, IconButton } from '@mui/material';
+import React from 'react';
 import styled from 'styled-components';
-import HomeIcon from '@mui/icons-material/Home';
-import MovieIcon from '@mui/icons-material/Movie';
-import TvIcon from '@mui/icons-material/Tv';
-import SportsEsportsIcon from '@mui/icons-material/SportsEsports';
-import EntertainmentIcon from '@mui/icons-material/TheaterComedy';
-import ChildFriendlyIcon from '@mui/icons-material/ChildFriendly';
+import { 
+  FaHome, FaYoutube, FaFilm, FaTv, 
+  FaPlayCircle, FaGamepad, FaChild 
+} from 'react-icons/fa';
 
+// إزالة استيرادات MUI غير الضرورية
+// إبقاء: import { Divider } from '@mui/material';
 
-const drawerWidth = 240;
-
-const DrawerContainer = styled.div`
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  width: ${drawerWidth}px;
-  height: 100%;
+const SidebarContainer = styled.aside`
+  width: 240px;
+  background-color: #212121;
+  color: white;
+  height: calc(100vh - 60px);
+  position: fixed;
+  top: 60px;
+  left: 0;
+  overflow-y: auto;
+  padding-top: 20px;
 `;
 
-const ButtonDiv = styled.div`
-  margin: 10px;
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: solid grey 1px;
-`;
-
-const UserInfo = styled.div`
-  margin: 20px;
+const MenuItem = styled.div`
   display: flex;
   align-items: center;
-  justify-content: center;
-`;
-
-const Sidebar = ({ open, handleLogin, handleLogout, toggleSidebar, loggedIn, setLoggedIn, user}) => {
+  gap: 24px;
+  padding: 12px 24px;
+  color: white;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
   
+  &:hover {
+    background-color: #383838;
+  }
+  
+  svg {
+    font-size: 20px;
+    width: 24px;
+    text-align: center;
+  }
+`;
+
+const WindowsNotification = styled.div`
+  background-color: #202020;
+  margin: 16px;
+  padding: 12px;
+  border-radius: 8px;
+  border-left: 4px solid #ff0000;
+  font-size: 12px;
+  color: #aaa;
+  
+  p {
+    margin: 4px 0;
+  }
+  
+  strong {
+    color: #fff;
+    font-weight: bold;
+  }
+`;
+
+const Sidebar = ({ open, handleLogin, handleLogout, user }) => {
+  const menuItems = [
+    { text: 'Home', icon: <FaHome /> },
+    { text: 'YouTube', icon: <FaYoutube /> },
+    { text: 'Movies', icon: <FaFilm /> },
+    { text: 'TV Shows', icon: <FaTv /> },
+    { text: 'Anime', icon: <FaPlayCircle /> },
+    { text: 'Entertainment', icon: <FaGamepad /> },
+    { text: 'Kids', icon: <FaChild /> },
+  ];
 
   return (
-    <Drawer
-      variant="persistent"
-      anchor="left"
-      open={open}
-      onClose={toggleSidebar}
-    >
-      <DrawerContainer>
-        <List>
-          {[
-            { text: 'Home', icon: <HomeIcon /> },
-            { text: 'Movies', icon: <MovieIcon /> },
-            { text: 'TV Shows', icon: <TvIcon /> },
-            { text: 'Anime', icon: <SportsEsportsIcon /> },
-            { text: 'Entertainment', icon: <EntertainmentIcon /> },
-            { text: 'Kids', icon: <ChildFriendlyIcon /> },
-          ].map((item) => (
-            <ListItem button key={item.text}>
-              <IconButton color="inherit">
-                {item.icon}
-              </IconButton>
-              <ListItemText primary={item.text} />
-            </ListItem>
-          ))}
-        </List>
-        <UserInfo>
-          <Divider />
-          {user ? (
-            <>
-              <Avatar alt="User Name" src={user.photoURL} />
-              <div>
-                <Typography variant="body2">{user.email}</Typography>
-                <Button color="secondary" onClick={handleLogout}>
-                  Logout
-                </Button>
-              </div>
-            </>
-          ) : (
-            <ButtonDiv>
-              <Button style={{width: "100%"}} color="primary" onClick={handleLogin}>
-                Login
-              </Button>
-            </ButtonDiv>
-          )}
-        </UserInfo>
-      </DrawerContainer>
-    </Drawer>
+    <SidebarContainer style={{ display: open ? 'block' : 'none' }}>
+      {menuItems.map((item) => (
+        <MenuItem key={item.text}>
+          {item.icon}
+          <span>{item.text}</span>
+        </MenuItem>
+      ))}
+      
+      {/* إشعار Windows كما في الصورة */}
+      <WindowsNotification>
+        <p><strong>Activate Windows</strong></p>
+        <p>Go to Settings to activate Windows.</p>
+      </WindowsNotification>
+      
+      {/* إزالة قسم معلومات المستخدم (سيضاف في مكان آخر) */}
+      {/* <UserInfo>...</UserInfo> */}
+    </SidebarContainer>
   );
 };
 
