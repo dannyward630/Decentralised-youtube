@@ -1,7 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
 import { FaSearch, FaUpload, FaUser } from 'react-icons/fa';
-import { Link } from 'react-router-dom';
 
 // إزالة استيرادات MUI
 // إزالة: import { AppBar, Toolbar, IconButton, Typography, InputBase, Button } from '@mui/material';
@@ -104,7 +103,7 @@ const NavButton = styled.button`
   }
 `;
 
-const Navbar = ({ toggleSidebar, open, user, toggleUploadModal }) => {
+const Navbar = ({ toggleSidebar, open, user, toggleUploadModal, handleLogin, handleLogout }) => {
   // إزالة: const drawerWidth = 240;
   // إزالة: const Search = styled.div...
   
@@ -129,18 +128,18 @@ const Navbar = ({ toggleSidebar, open, user, toggleUploadModal }) => {
       </CenterSection>
 
       <RightSection>
-        <NavButton onClick={() => user ? toggleUploadModal() : alert("Please login first !!")}>
+        <NavButton onClick={toggleUploadModal}>
           <FaUpload />
           <span>UPLOAD</span>
         </NavButton>
         
         {user ? (
-          <NavButton primary>
+          <NavButton primary onClick={handleLogout}>
             <FaUser />
             <span>LOGOUT</span>
           </NavButton>
         ) : (
-          <NavButton primary>
+          <NavButton primary onClick={handleLogin}>
             <FaUser />
             <span>LOGIN</span>
           </NavButton>

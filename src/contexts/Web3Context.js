@@ -1,5 +1,6 @@
 import React, { createContext, useState, useEffect, useContext, useMemo } from 'react';
 import { ethers } from 'ethers';
+import { CONTRACT_ABI, CONTRACT_ADDRESS } from '../services/blockchain';
 
 const Web3Context = createContext();
 
@@ -11,27 +12,24 @@ export const Web3Provider = ({ children }) => {
   const [isConnected, setIsConnected] = useState(false);
   const [network, setNetwork] = useState('');
 
-  // استخدام useMemo للـ ABI
-  const CONTRACT_ABI = useMemo(() => [
-    "function uploadVideo(string memory _videoHash, string memory _title, string memory _description, string memory _location, string memory _category, string memory _thumbnailHash, string memory _date) public",
-    "function getVideoCount() public view returns (uint256)",
-    "function getVideo(uint256 _id) public view returns (tuple(uint256 id, string hash, string title, string description, string location, string category, string thumbnailHash, string date, address author, uint256 createdAt) memory)",
-    "function getAllVideos() public view returns (tuple(uint256 id, string hash, string title, string description, string location, string category, string thumbnailHash, string date, address author, uint256 createdAt)[] memory)",
-    "event VideoUploaded(uint256 id, string hash, string title, string description, string location, string category, string thumbnailHash, string date, address author, uint256 timestamp)"
-  ], []);
-
-  const CONTRACT_ADDRESS = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
+  const contractAbi = useMemo(() => CONTRACT_ABI, []);
 
   const connectWallet = async () => {
     if (window.ethereum) {
       try {
+        if (!CONTRACT_ADDRESS) {
+          throw new Error('REACT_APP_CONTRACT_ADDRESS is not configured');
+        }
+
         const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        if (!accounts.length) {
+          throw new Error('No wallet account was selected');
+        }
         setAccount(accounts[0]);
         
-        // استخدام Web3Provider في ethers v5.7
         const provider = new ethers.providers.Web3Provider(window.ethereum);
         const signer = provider.getSigner();
-        const contractInstance = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+        const contractInstance = new ethers.Contract(CONTRACT_ADDRESS, contractAbi, signer);
         
         const network = await provider.getNetwork();
         setNetwork(network.name);
@@ -73,7 +71,9 @@ export const Web3Provider = ({ children }) => {
             
             const provider = new ethers.providers.Web3Provider(window.ethereum);
             const signer = provider.getSigner();
-            const contractInstance = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+            const contractInstance = CONTRACT_ADDRESS
+              ? new ethers.Contract(CONTRACT_ADDRESS, contractAbi, signer)
+              : null;
             
             const network = await provider.getNetwork();
             setNetwork(network.name);
@@ -114,7 +114,7 @@ export const Web3Provider = ({ children }) => {
         }
       };
     }
-  }, [CONTRACT_ABI]);
+  }, [contractAbi]);
 
   const value = {
     account,

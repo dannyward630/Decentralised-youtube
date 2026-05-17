@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
+import { Web3Provider } from './contexts/Web3Context';
 
 // إضافة polyfill لـ Buffer بطريقة آمنة
 if (typeof window !== 'undefined' && !window.Buffer) {
@@ -49,6 +50,8 @@ if (typeof window !== 'undefined' && !window.Buffer) {
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
-    <App />
+    <Web3Provider>
+      <App />
+    </Web3Provider>
   </React.StrictMode>
 );

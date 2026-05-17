@@ -9,6 +9,9 @@ import LinearProgress from '@mui/material/LinearProgress';
 import Alert from '@mui/material/Alert';
 import { styled } from '@mui/material/styles';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import { useWeb3 } from '../contexts/Web3Context';
+import { uploadToIPFS } from '../services/ipfs';
+import { uploadVideo as uploadVideoToBlockchain, formatVideo } from '../services/blockchain';
 
 const VisuallyHiddenInput = styled('input')({
   clip: 'rect(0 0 0 0)',
@@ -22,7 +25,8 @@ const VisuallyHiddenInput = styled('input')({
   width: 1,
 });
 
-const UploadModal = ({ open, handleClose }) => {
+const UploadModal = ({ open, handleClose, onUploaded }) => {
+  const { account, isConnected, connectWallet } = useWeb3();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('Entertainment');
@@ -32,7 +36,7 @@ const UploadModal = ({ open, handleClose }) => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [account, setAccount] = useState('');
+  const [status, setStatus] = useState('');
 
   const categories = [
     'Entertainment',
@@ -46,24 +50,18 @@ const UploadModal = ({ open, handleClose }) => {
     'Other'
   ];
 
-  // محاكاة اتصال المحفظة
-  const connectWallet = async () => {
+  const handleConnectWallet = async () => {
     try {
-      // محاكاة اتصال MetaMask
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // عنوان محفظة وهمي
-      const fakeAccount = '0x' + Math.random().toString(16).substring(2, 42);
-      setAccount(fakeAccount);
-      setSuccess('Wallet connected successfully! (Demo Mode)');
+      setError('');
+      await connectWallet();
+      setSuccess('Wallet connected successfully.');
     } catch (error) {
       setError('Failed to connect wallet: ' + error.message);
     }
   };
 
-  // محاكاة تحميل الفيديو
-  const uploadVideo = async () => {
-    if (!account) {
+  const submitUpload = async () => {
+    if (!isConnected || !account) {
       setError('Please connect your wallet first');
       return;
     }
@@ -83,58 +81,81 @@ const UploadModal = ({ open, handleClose }) => {
       setError('');
       setSuccess('');
       setUploadProgress(0);
+      setStatus('Uploading video to IPFS...');
 
-      // محاكاة الرفع إلى IPFS
-      console.log('📤 Simulating upload to IPFS...');
-      
-      // محاكاة التقدم
-      const simulateProgress = () => {
-        return new Promise((resolve) => {
-          let progress = 0;
-          const interval = setInterval(() => {
-            progress += 5;
-            setUploadProgress(progress);
-            
-            if (progress >= 100) {
-              clearInterval(interval);
-              resolve();
-            }
-          }, 100);
+      const videoHash = await uploadToIPFS(videoFile, (progress) => {
+        setUploadProgress(Math.round(progress * 0.5));
+      });
+
+      let thumbnailHash = '';
+      if (thumbnailFile) {
+        setStatus('Uploading thumbnail to IPFS...');
+        thumbnailHash = await uploadToIPFS(thumbnailFile, (progress) => {
+          setUploadProgress(50 + Math.round(progress * 0.2));
         });
-      };
-      
-      await simulateProgress();
+      }
 
-      // إعادة تعيين النموذج
+      setStatus('Waiting for wallet transaction...');
+      setUploadProgress(75);
+
+      const transaction = await uploadVideoToBlockchain({
+        videoHash,
+        title: title.trim(),
+        description: description.trim(),
+        location: '',
+        category,
+        thumbnailHash,
+        date: new Date().toISOString().split('T')[0],
+      });
+
+      setStatus(`Transaction submitted: ${transaction.hash}`);
+      const receipt = await transaction.wait();
+      const event = receipt.events?.find((item) => item.event === 'VideoUploaded');
+      const uploadedVideo = event?.args ? formatVideo(event.args) : {
+        id: receipt.transactionHash,
+        hash: videoHash,
+        title: title.trim(),
+        description: description.trim(),
+        author: account,
+        category,
+        date: new Date().toISOString().split('T')[0],
+        thumbnailHash,
+        createdAt: Math.floor(Date.now() / 1000).toString(),
+        source: 'blockchain',
+      };
+
+      setUploadProgress(100);
+      setStatus('Upload confirmed on-chain.');
+      setSuccess('Video uploaded to IPFS and minted to your wallet.');
+      onUploaded?.(uploadedVideo);
+
       setTitle('');
       setDescription('');
       setCategory('Entertainment');
       setVideoFile(null);
       setThumbnailFile(null);
       setUploading(false);
-      setSuccess('✅ Video uploaded successfully! NFT minted to your wallet. (Demo Mode)');
 
-      // إغلاق النافذة بعد 3 ثواني
       setTimeout(() => {
         handleClose();
       }, 3000);
 
     } catch (error) {
-      console.error('❌ Error uploading video:', error);
+      console.error('Error uploading video:', error);
       setError(`Upload failed: ${error.message || 'Unknown error'}`);
       setUploading(false);
       setUploadProgress(0);
+      setStatus('');
     }
   };
 
-  // إعادة تعيين الحالة عند فتح النافذة
   useEffect(() => {
     if (open) {
-      setAccount('');
       setError('');
       setSuccess('');
       setUploading(false);
       setUploadProgress(0);
+      setStatus('');
     }
   }, [open]);
 
@@ -162,7 +183,7 @@ const UploadModal = ({ open, handleClose }) => {
     >
       <Box sx={style}>
         <Typography id="upload-modal-title" variant="h5" component="h2" gutterBottom>
-          🚀 Upload Video to Decentralized Network
+          Upload Video to Decentralized Network
         </Typography>
         
         {error && (
@@ -177,8 +198,7 @@ const UploadModal = ({ open, handleClose }) => {
           </Alert>
         )}
         
-        {/* قسم اتصال المحفظة */}
-        {!account ? (
+        {!isConnected ? (
           <Box sx={{ textAlign: 'center', py: 4 }}>
             <Typography variant="body1" gutterBottom>
               Connect your wallet to upload videos to the decentralized network
@@ -187,34 +207,34 @@ const UploadModal = ({ open, handleClose }) => {
               variant="contained"
               color="primary"
               size="large"
-              onClick={connectWallet}
+              onClick={handleConnectWallet}
               startIcon={<CloudUploadIcon />}
               sx={{ mt: 2 }}
             >
-              Connect Wallet (Demo)
+              Connect Wallet
             </Button>
             <Typography variant="caption" sx={{ display: 'block', mt: 2, color: 'text.secondary' }}>
-              ⚠️ Demo Mode: Using simulated wallet and blockchain
+              MetaMask is required. Uploads are signed by the connected wallet.
             </Typography>
           </Box>
         ) : (
           <>
             <Box sx={{ mb: 2, p: 2, bgcolor: 'primary.light', borderRadius: 1 }}>
               <Typography variant="body2">
-                ✅ Connected: <strong>{account.substring(0, 8)}...{account.substring(account.length - 4)}</strong>
+                Connected: <strong>{account.substring(0, 8)}...{account.substring(account.length - 4)}</strong>
                 <br />
-                <small>Demo Account - Not a real wallet</small>
+                <small>This wallet will own the minted video NFT.</small>
               </Typography>
             </Box>
             
             {uploading ? (
               <Box sx={{ width: '100%', mt: 2 }}>
                 <Typography variant="body1" gutterBottom>
-                  Uploading... {Math.round(uploadProgress)}%
+                  {status || 'Uploading...'} {Math.round(uploadProgress)}%
                 </Typography>
                 <LinearProgress variant="determinate" value={uploadProgress} sx={{ height: 10, borderRadius: 5, mb: 2 }} />
                 <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary' }}>
-                  Simulating: Uploading to IPFS and minting NFT on blockchain...
+                  Keep your wallet open until the blockchain transaction is confirmed.
                 </Typography>
               </Box>
             ) : (
@@ -290,34 +310,32 @@ const UploadModal = ({ open, handleClose }) => {
                   ))}
                 </TextField>
                 
-                {/* معلومات عن العملية */}
                 <Box sx={{ mt: 2, p: 2, bgcolor: 'info.light', borderRadius: 1 }}>
                   <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary' }}>
-                    ℹ️ In Demo Mode this simulates:
+                    This upload will:
                   </Typography>
                   <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary' }}>
-                    1. Uploading to IPFS (decentralized storage)
+                    1. Upload the selected file to the configured IPFS provider
                   </Typography>
                   <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary' }}>
-                    2. Minting as NFT on Ethereum blockchain
+                    2. Register the IPFS hash with the deployed Youtube contract
                   </Typography>
                   <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary' }}>
-                    3. Owning content with your wallet address
+                    3. Mint the video NFT to {account.substring(0, 8)}...{account.substring(account.length - 4)}
                   </Typography>
                 </Box>
                 
-                {/* أزرار الإجراءات */}
                 <Box sx={{ mt: 3, display: 'flex', justifyContent: 'space-between' }}>
                   <Button onClick={handleClose} disabled={uploading}>
                     Cancel
                   </Button>
                   <Button
                     variant="contained"
-                    onClick={uploadVideo}
+                    onClick={submitUpload}
                     disabled={uploading || !videoFile || !title.trim()}
                     startIcon={<CloudUploadIcon />}
                   >
-                    Upload & Mint NFT (Demo)
+                    Upload & Mint NFT
                   </Button>
                 </Box>
               </>

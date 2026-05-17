@@ -1,9 +1,12 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router } from 'react-router-dom'; // 🔴 إزالة Routes و Route
 import styled from 'styled-components';
 import Navbar from './components/Navbar';
 import Sidebar from './components/Sidebar';
 import UploadModal from './components/UploadModal';
+import { useWeb3 } from './contexts/Web3Context';
+import { loadAllVideos } from './services/blockchain';
+import { getIPFSFileUrl } from './services/ipfs';
 // 🔴 إزالة: import VideoPage from './components/VideoPage';
 // 🔴 إزالة: import Home from './pages/Home';
 import {
@@ -15,7 +18,6 @@ import {
   CardContent,
   CardMedia,
   Grid,
-  LinearProgress,
   Alert
 } from '@mui/material';
 // 🔴 إزالة: import CloudUploadIcon from '@mui/icons-material/CloudUpload';
@@ -30,17 +32,28 @@ const MainContent = styled.div`
   min-height: calc(100vh - 60px);
 `;
 
+const createPlaceholderThumbnail = (label, color) => (
+  `data:image/svg+xml,${encodeURIComponent(`
+    <svg xmlns="http://www.w3.org/2000/svg" width="320" height="180" viewBox="0 0 320 180">
+      <rect width="320" height="180" fill="${color}"/>
+      <circle cx="160" cy="90" r="32" fill="rgba(255,255,255,0.2)"/>
+      <polygon points="150,70 150,110 186,90" fill="white"/>
+      <text x="160" y="145" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="20" font-weight="700">${label}</text>
+    </svg>
+  `)}`
+);
+
+const IPFS_PLACEHOLDER = createPlaceholderThumbnail('IPFS Video', '#6a1b9a');
+
 // ==================== المكون الرئيسي ====================
 const App = () => {
+  const { account, isConnected, connectWallet, disconnectWallet } = useWeb3();
   // حالة للشريط الجانبي
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [walletError, setWalletError] = useState('');
   
   // حالة الرفع والمحتوى
-  const [uploading, setUploading] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [connected, setConnected] = useState(false);
-  const [walletAddress, setWalletAddress] = useState('');
   const [videos, setVideos] = useState([
     {
       id: 1,
@@ -48,7 +61,8 @@ const App = () => {
       description: 'This video demonstrates decentralized video uploads',
       category: 'Technology',
       date: '2023-12-24',
-      thumbnail: 'https://via.placeholder.com/320x180/4CAF50/FFFFFF?text=Decentralized+Video'
+      thumbnail: createPlaceholderThumbnail('Decentralized Video', '#2e7d32'),
+      source: 'demo'
     },
     {
       id: 2,
@@ -56,7 +70,8 @@ const App = () => {
       description: 'Learn how blockchain enables decentralized applications',
       category: 'Education',
       date: '2023-12-23',
-      thumbnail: 'https://via.placeholder.com/320x180/2196F3/FFFFFF?text=Blockchain+101'
+      thumbnail: createPlaceholderThumbnail('Blockchain 101', '#1565c0'),
+      source: 'demo'
     },
     {
       id: 3,
@@ -64,9 +79,28 @@ const App = () => {
       description: 'The future of decentralized internet',
       category: 'Technology',
       date: '2023-12-22',
-      thumbnail: 'https://via.placeholder.com/320x180/FF9800/FFFFFF?text=Web3+Future'
+      thumbnail: createPlaceholderThumbnail('Web3 Future', '#ef6c00'),
+      source: 'demo'
     }
   ]);
+
+  useEffect(() => {
+    const loadBlockchainVideos = async () => {
+      try {
+        const blockchainVideos = await loadAllVideos();
+        if (blockchainVideos.length > 0) {
+          setVideos((currentVideos) => [
+            ...blockchainVideos,
+            ...currentVideos.filter((video) => video.source !== 'blockchain'),
+          ]);
+        }
+      } catch (error) {
+        console.info('Blockchain videos are not available yet:', error.message);
+      }
+    };
+
+    loadBlockchainVideos();
+  }, []);
 
   // دالات التحكم بالشريط الجانبي والنوافذ
   const toggleSidebar = () => {
@@ -77,43 +111,17 @@ const App = () => {
     setIsUploadModalOpen(!isUploadModalOpen);
   };
 
-  // دالات اتصال المحفظة والرفع
-  const connectWallet = () => {
-    // محاكاة اتصال المحفظة
-    const fakeAddress = '0x' + Math.random().toString(16).substring(2, 42);
-    setWalletAddress(fakeAddress);
-    setConnected(true);
+  const handleConnectWallet = async () => {
+    try {
+      setWalletError('');
+      await connectWallet();
+    } catch (error) {
+      setWalletError(error.message);
+    }
   };
 
-  const uploadVideo = () => {
-    setUploading(true);
-    setProgress(0);
-    
-    const interval = setInterval(() => {
-      setProgress(prev => {
-        const newProgress = prev + 5;
-        if (newProgress >= 100) {
-          clearInterval(interval);
-          setTimeout(() => {
-            setUploading(false);
-            toggleUploadModal(); // إغلاق النافذة بعد الرفع
-            
-            // إضافة فيديو جديد
-            const newVideo = {
-              id: videos.length + 1,
-              title: `Uploaded Video ${videos.length + 1}`,
-              description: 'This video was uploaded to IPFS and minted as NFT',
-              category: 'User Generated',
-              date: new Date().toISOString().split('T')[0],
-              thumbnail: 'https://via.placeholder.com/320x180/9C27B0/FFFFFF?text=New+NFT+Video'
-            };
-            setVideos([newVideo, ...videos]);
-          }, 500);
-          return 100;
-        }
-        return newProgress;
-      });
-    }, 100);
+  const handleVideoUploaded = (video) => {
+    setVideos((currentVideos) => [video, ...currentVideos]);
   };
 
   return (
@@ -122,19 +130,18 @@ const App = () => {
       <Navbar 
         toggleSidebar={toggleSidebar}
         open={isSidebarOpen}
-        user={connected ? { email: walletAddress } : null}
+        user={isConnected ? { email: account } : null}
         toggleUploadModal={toggleUploadModal}
+        handleLogin={handleConnectWallet}
+        handleLogout={disconnectWallet}
       />
       
       {/* ========== SIDEBAR (تصميم YouTube) ========== */}
       <Sidebar 
         open={isSidebarOpen}
-        handleLogin={connectWallet}
-        handleLogout={() => {
-          setConnected(false);
-          setWalletAddress('');
-        }}
-        user={connected ? { email: walletAddress } : null}
+        handleLogin={handleConnectWallet}
+        handleLogout={disconnectWallet}
+        user={isConnected ? { email: account } : null}
       />
       
       {/* ========== MAIN CONTENT AREA ========== */}
@@ -144,10 +151,7 @@ const App = () => {
           <UploadModal 
             open={isUploadModalOpen}
             handleClose={toggleUploadModal}
-            uploadVideo={uploadVideo}
-            uploading={uploading}
-            progress={progress}
-            connected={connected}
+            onUploaded={handleVideoUploaded}
           />
         )}
         
@@ -159,11 +163,11 @@ const App = () => {
               🎬 Decentralized YouTube
             </Typography>
             
-            {connected ? (
+            {isConnected ? (
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                 <Box sx={{ p: 1, bgcolor: '#065fd4', color: 'white', borderRadius: 1 }}>
                   <Typography variant="caption">
-                    {walletAddress.substring(0, 8)}...{walletAddress.substring(walletAddress.length - 4)}
+                    {account.substring(0, 8)}...{account.substring(account.length - 4)}
                   </Typography>
                 </Box>
               </Box>
@@ -172,34 +176,23 @@ const App = () => {
                 variant="contained"
                 color="primary"
                 size="medium"
-                onClick={connectWallet}
+                onClick={handleConnectWallet}
                 sx={{ bgcolor: '#065fd4', '&:hover': { bgcolor: '#1c62b9' } }}
               >
-                Connect Wallet (Demo)
+                Connect Wallet
               </Button>
             )}
           </Box>
 
           {/* Status Message */}
-          <Alert severity="success" sx={{ mb: 4, bgcolor: '#1b5e20', color: 'white' }}>
-            ✅ <strong>Issue #1 Implemented:</strong> Decentralized video uploads enabled!
-          </Alert>
-
-          {/* Upload Progress (يظهر عند الرفع) */}
-          {uploading && (
-            <Box sx={{ mb: 4, p: 2, bgcolor: '#1e1e1e', borderRadius: 2 }}>
-              <Typography variant="body1" gutterBottom sx={{ color: 'white' }}>
-                Uploading to IPFS and minting NFT... {progress}%
-              </Typography>
-              <LinearProgress 
-                variant="determinate" 
-                value={progress} 
-                sx={{ height: 10, borderRadius: 5, bgcolor: '#333' }}
-              />
-              <Typography variant="caption" sx={{ display: 'block', mt: 1, color: '#aaa' }}>
-                Simulating: IPFS Upload → Blockchain Transaction → NFT Minting
-              </Typography>
-            </Box>
+          {walletError ? (
+            <Alert severity="error" sx={{ mb: 4 }}>
+              {walletError}
+            </Alert>
+          ) : (
+            <Alert severity="info" sx={{ mb: 4 }}>
+              <strong>Decentralized uploads:</strong> connect MetaMask, upload to IPFS, then mint the video NFT to your wallet.
+            </Alert>
           )}
 
           {/* Feature Info */}
@@ -220,7 +213,7 @@ const App = () => {
                   ✅ Any User Can Upload
                 </Typography>
                 <Typography variant="body2" sx={{ color: '#ccc' }}>
-                  Not just contract owner. Any connected wallet can upload videos.
+                  Not just the deployer. Any connected wallet can upload videos.
                 </Typography>
               </Grid>
               <Grid item xs={12} md={4}>
@@ -262,7 +255,7 @@ const App = () => {
                   <CardMedia
                     component="img"
                     height="180"
-                    image={video.thumbnail}
+                    image={video.thumbnail || getIPFSFileUrl(video.thumbnailHash) || IPFS_PLACEHOLDER}
                     alt={video.title}
                     sx={{ objectFit: 'cover' }}
                   />
@@ -281,9 +274,18 @@ const App = () => {
                         📅 {video.date}
                       </Typography>
                     </Box>
-                    {video.id <= 3 && (
+                    {video.source === 'blockchain' && video.author && (
+                      <Typography variant="caption" sx={{ display: 'block', mt: 1, color: '#3ea6ff' }}>
+                        Owner: {video.author.substring(0, 8)}...{video.author.substring(video.author.length - 4)}
+                      </Typography>
+                    )}
+                    {video.source === 'blockchain' ? (
                       <Typography variant="caption" sx={{ display: 'block', mt: 1, color: '#4CAF50' }}>
-                        {video.id === 1 ? '🌐 Stored on IPFS' : '📡 Decentralized'}
+                        Stored on IPFS and minted as NFT
+                      </Typography>
+                    ) : (
+                      <Typography variant="caption" sx={{ display: 'block', mt: 1, color: '#aaa' }}>
+                        Demo video
                       </Typography>
                     )}
                   </CardContent>
@@ -312,17 +314,17 @@ const App = () => {
               </li>
               <li>
                 <Typography variant="body1" gutterBottom sx={{ color: '#ccc' }}>
-                  <strong style={{ color: 'white' }}>Click UPLOAD:</strong> Use the UPLOAD button in top navbar
+                  <strong style={{ color: 'white' }}>Click UPLOAD:</strong> Use the upload button in top navbar
                 </Typography>
               </li>
               <li>
                 <Typography variant="body1" gutterBottom sx={{ color: '#ccc' }}>
-                  <strong style={{ color: 'white' }}>Watch Progress:</strong> See the upload progress
+                  <strong style={{ color: 'white' }}>Watch Progress:</strong> See IPFS and transaction progress
                 </Typography>
               </li>
               <li>
                 <Typography variant="body1" sx={{ color: '#ccc' }}>
-                  <strong style={{ color: 'white' }}>View Results:</strong> New video appears in the grid
+                  <strong style={{ color: 'white' }}>View Results:</strong> New on-chain video appears in the grid
                 </Typography>
               </li>
             </ol>
@@ -338,10 +340,10 @@ const App = () => {
             color: '#aaa'
           }}>
             <Typography variant="body2">
-              Decentralized YouTube - Issue #1 Implementation Complete
+              Decentralized YouTube
             </Typography>
             <Typography variant="caption" sx={{ display: 'block', color: '#666' }}>
-              Design matches reference image | Status: ✅ IMPLEMENTED
+              Videos uploaded through this app are owned by the uploader wallet.
             </Typography>
           </Box>
         </Container>

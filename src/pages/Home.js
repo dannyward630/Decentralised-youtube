@@ -2,17 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Grid, Box, Typography, Button, CircularProgress } from '@mui/material';
 import VideoCard from '../components/VideoCard';
 import { fetchVideos } from '../data';
-import { ethers } from 'ethers';
+import { loadAllVideos } from '../services/blockchain';
 import PlayCircleIcon from '@mui/icons-material/PlayCircle';
-
-// ABI للعقد الذكي
-const CONTRACT_ABI = [
-  "function getVideoCount() public view returns (uint256)",
-  "function getVideo(uint256 _id) public view returns (tuple(uint256 id, string hash, string title, string description, string location, string category, string thumbnailHash, string date, address author, uint256 createdAt) memory)",
-  "function getAllVideos() public view returns (tuple(uint256 id, string hash, string title, string description, string location, string category, string thumbnailHash, string date, address author, uint256 createdAt)[] memory)"
-];
-
-const CONTRACT_ADDRESS = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
 
 const Home = () => {
   const [videos, setVideos] = useState([]);
@@ -42,64 +33,11 @@ const Home = () => {
   // تحميل الفيديوهات من Blockchain
   useEffect(() => {
     const loadBlockchainVideos = async () => {
-      if (window.ethereum) {
-        try {
-          // استخدام Web3Provider في ethers v5.7
-          const provider = new ethers.providers.Web3Provider(window.ethereum);
-          const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
-          
-          try {
-            // محاولة استخدام getAllVideos إذا كانت موجودة
-            const allVideos = await contract.getAllVideos();
-            const formattedVideos = allVideos.map(video => ({
-              id: video.id.toString(),
-              hash: video.hash,
-              title: video.title || 'Untitled Video',
-              description: video.description || '',
-              author: video.author,
-              category: video.category || 'Uncategorized',
-              date: video.date || new Date().toLocaleDateString(),
-              thumbnailHash: video.thumbnailHash,
-              source: 'blockchain',
-              createdAt: video.createdAt
-            }));
-            setBlockchainVideos(formattedVideos);
-          } catch (error) {
-            console.log('getAllVideos not available, trying individual loading');
-            // بديل: تحميل الفيديوهات واحدة بواحدة
-            try {
-              const count = await contract.getVideoCount();
-              const videosArray = [];
-              for (let i = 1; i <= count; i++) {
-                try {
-                  const video = await contract.getVideo(i);
-                  videosArray.push({
-                    id: video.id.toString(),
-                    hash: video.hash,
-                    title: video.title || 'Untitled Video',
-                    description: video.description || '',
-                    author: video.author,
-                    category: video.category || 'Uncategorized',
-                    date: video.date || new Date().toLocaleDateString(),
-                    thumbnailHash: video.thumbnailHash,
-                    source: 'blockchain',
-                    createdAt: video.createdAt
-                  });
-                } catch (err) {
-                  console.error(`Error loading video ${i}:`, err);
-                }
-              }
-              setBlockchainVideos(videosArray);
-            } catch (err2) {
-              console.error('Error getting video count:', err2);
-            }
-          }
-        } catch (error) {
-          console.error('Error loading blockchain videos:', error);
-        } finally {
-          setLoading(false);
-        }
-      } else {
+      try {
+        setBlockchainVideos(await loadAllVideos());
+      } catch (error) {
+        console.info('Blockchain videos are not available yet:', error.message);
+      } finally {
         setLoading(false);
       }
     };
