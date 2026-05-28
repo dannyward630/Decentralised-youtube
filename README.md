@@ -50,7 +50,7 @@ The browser upload flow is intentionally not a demo stub. Configure one IPFS
 backend before uploading:
 
 ```bash
-REACT_APP_PINATA_JWT=your_pinata_jwt
+REACT_APP_PINATA_UPLOAD_URL=/api/pinata/upload
 ```
 
 or:
@@ -58,6 +58,10 @@ or:
 ```bash
 REACT_APP_IPFS_API_URL=http://127.0.0.1:5001
 ```
+
+The Pinata upload URL should point at a server-side endpoint that stores the
+Pinata JWT outside the React bundle and returns an IPFS hash as `IpfsHash`,
+`Hash`, or `cid`.
 
 If no IPFS backend or contract address is configured, the UI shows an actionable
 error instead of pretending the upload succeeded.

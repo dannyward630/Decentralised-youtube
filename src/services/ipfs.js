@@ -13,8 +13,8 @@ export const uploadToIPFS = async (file, onProgress) => {
     return '';
   }
 
-  if (process.env.REACT_APP_PINATA_JWT) {
-    return uploadWithPinata(file, onProgress);
+  if (process.env.REACT_APP_PINATA_UPLOAD_URL) {
+    return uploadWithUploadProxy(file, onProgress);
   }
 
   if (process.env.REACT_APP_IPFS_API_URL) {
@@ -22,26 +22,24 @@ export const uploadToIPFS = async (file, onProgress) => {
   }
 
   throw new Error(
-    'IPFS upload is not configured. Set REACT_APP_PINATA_JWT or REACT_APP_IPFS_API_URL before uploading.',
+    'IPFS upload is not configured. Set REACT_APP_PINATA_UPLOAD_URL or REACT_APP_IPFS_API_URL before uploading.',
   );
 };
 
-const uploadWithPinata = async (file, onProgress) => {
+const uploadWithUploadProxy = async (file, onProgress) => {
   const formData = new FormData();
   formData.append('file', file);
 
-  const response = await axios.post('https://api.pinata.cloud/pinning/pinFileToIPFS', formData, {
-    headers: {
-      Authorization: `Bearer ${process.env.REACT_APP_PINATA_JWT}`,
-    },
+  const response = await axios.post(process.env.REACT_APP_PINATA_UPLOAD_URL, formData, {
     onUploadProgress: toProgressHandler(onProgress),
   });
+  const cid = response.data?.IpfsHash || response.data?.Hash || response.data?.cid;
 
-  if (!response.data?.IpfsHash) {
-    throw new Error('Pinata did not return an IPFS hash.');
+  if (!cid) {
+    throw new Error('Upload proxy did not return an IPFS hash.');
   }
 
-  return response.data.IpfsHash;
+  return cid;
 };
 
 const uploadWithIpfsApi = async (file, onProgress) => {

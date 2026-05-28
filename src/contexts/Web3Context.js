@@ -79,7 +79,7 @@ export const Web3Provider = ({ children }) => {
             setNetwork(network.name);
             
             setContract(contractInstance);
-            setIsConnected(true);
+            setIsConnected(Boolean(contractInstance));
           }
         } catch (error) {
           console.error('Error checking connection:', error);
