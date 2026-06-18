@@ -64,6 +64,32 @@ describe('Youtube', function () {
     expect((await youtube.getVideoCount()).toNumber()).to.equal(2);
   });
 
+  it('returns videos in bounded pages', async function () {
+    const { youtube, creator } = await deployYoutube();
+
+    await youtube
+      .connect(creator)
+      .uploadVideo('QmVideo1', 'First video', '', '', 'Education', '', '2026-05-16');
+    await youtube
+      .connect(creator)
+      .uploadVideo('QmVideo2', 'Second video', '', '', 'Music', '', '2026-05-17');
+    await youtube
+      .connect(creator)
+      .uploadVideo('QmVideo3', 'Third video', '', '', 'Technology', '', '2026-05-18');
+
+    const firstPage = await youtube.getVideos(0, 2);
+    expect(firstPage).to.have.lengthOf(2);
+    expect(firstPage[0].id.toNumber()).to.equal(1);
+    expect(firstPage[1].id.toNumber()).to.equal(2);
+
+    const secondPage = await youtube.getVideos(2, 2);
+    expect(secondPage).to.have.lengthOf(1);
+    expect(secondPage[0].id.toNumber()).to.equal(3);
+
+    expect(await youtube.getVideos(3, 2)).to.have.lengthOf(0);
+    expect(await youtube.getVideos(0, 0)).to.have.lengthOf(0);
+  });
+
   it('rejects empty required metadata', async function () {
     const { youtube, creator } = await deployYoutube();
 

@@ -100,4 +100,20 @@ contract Youtube is ERC721URIStorage {
 
         return allVideos;
     }
+
+    function getVideos(uint256 offset, uint256 limit) public view returns (Video[] memory) {
+        if (offset >= videoCount || limit == 0) {
+            return new Video[](0);
+        }
+
+        uint256 remaining = videoCount - offset;
+        uint256 resultSize = limit < remaining ? limit : remaining;
+        Video[] memory pagedVideos = new Video[](resultSize);
+
+        for (uint256 i = 0; i < resultSize; i += 1) {
+            pagedVideos[i] = videos[offset + i + 1];
+        }
+
+        return pagedVideos;
+    }
 }
