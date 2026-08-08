@@ -44,8 +44,7 @@ const Home = () => {
     const loadBlockchainVideos = async () => {
       if (window.ethereum) {
         try {
-          // استخدام Web3Provider في ethers v5.7
-          const provider = new ethers.providers.Web3Provider(window.ethereum);
+          const provider = new ethers.BrowserProvider(window.ethereum);
           const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
           
           try {

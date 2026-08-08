@@ -28,9 +28,8 @@ export const Web3Provider = ({ children }) => {
         const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
         setAccount(accounts[0]);
         
-        // استخدام Web3Provider في ethers v5.7
-        const provider = new ethers.providers.Web3Provider(window.ethereum);
-        const signer = provider.getSigner();
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        const signer = await provider.getSigner();
         const contractInstance = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
         
         const network = await provider.getNetwork();
@@ -71,8 +70,8 @@ export const Web3Provider = ({ children }) => {
           if (accounts.length > 0) {
             setAccount(accounts[0]);
             
-            const provider = new ethers.providers.Web3Provider(window.ethereum);
-            const signer = provider.getSigner();
+            const provider = new ethers.BrowserProvider(window.ethereum);
+            const signer = await provider.getSigner();
             const contractInstance = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
             
             const network = await provider.getNetwork();
