@@ -17,15 +17,15 @@ export const getContract = async () => {
     throw new Error('MetaMask is not installed');
   }
 
-  const provider = new ethers.providers.Web3Provider(window.ethereum);
-  const signer = provider.getSigner();
+  const provider = new ethers.BrowserProvider(window.ethereum);
+  const signer = await provider.getSigner();
   return new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
 };
 
 // الحصول على عقد للقراءة فقط
 export const getReadOnlyContract = async () => {
   // استخدام RPC محلي للتطوير
-  const provider = new ethers.providers.JsonRpcProvider('http://localhost:8545');
+  const provider = new ethers.JsonRpcProvider('http://localhost:8545');
   return new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
 };
 
