@@ -17,6 +17,7 @@ contract Youtube is ERC721URIStorage {
         uint256 createdAt;
     }
 
+    uint256 private constant MAX_PAGE_SIZE = 100;
     uint256 private videoCount;
     mapping(uint256 => Video) private videos;
 
@@ -107,7 +108,8 @@ contract Youtube is ERC721URIStorage {
         }
 
         uint256 remaining = videoCount - offset;
-        uint256 resultSize = limit < remaining ? limit : remaining;
+        uint256 boundedLimit = limit > MAX_PAGE_SIZE ? MAX_PAGE_SIZE : limit;
+        uint256 resultSize = boundedLimit < remaining ? boundedLimit : remaining;
         Video[] memory pagedVideos = new Video[](resultSize);
 
         for (uint256 i = 0; i < resultSize; i += 1) {
