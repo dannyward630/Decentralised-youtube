@@ -74,14 +74,16 @@ export const loadAllVideos = async () => {
         videos.push(...page.map(formatVideo));
       }
       return videos;
-    } catch (pageError) {
+    } catch {
+      // Discard partial results before trying the legacy read methods.
+      videos.length = 0;
       console.info('Paged video loading is unavailable; trying legacy read methods.');
     }
 
     try {
       const allVideos = await contract.getAllVideos();
       return allVideos.map(formatVideo);
-    } catch (allVideosError) {
+    } catch {
       console.info('getAllVideos is unavailable; loading videos individually.');
 
       for (let id = 1; id <= count; id += 1) {
