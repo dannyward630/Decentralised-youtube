@@ -5,6 +5,7 @@ export const CONTRACT_ABI = [
   "function getVideoCount() public view returns (uint256)",
   "function getVideo(uint256 _id) public view returns (tuple(uint256 id, string hash, string title, string description, string location, string category, string thumbnailHash, string date, address author, uint256 createdAt) memory)",
   "function getAllVideos() public view returns (tuple(uint256 id, string hash, string title, string description, string location, string category, string thumbnailHash, string date, address author, uint256 createdAt)[] memory)",
+  "function getVideos(uint256 offset, uint256 limit) public view returns (tuple(uint256 id, string hash, string title, string description, string location, string category, string thumbnailHash, string date, address author, uint256 createdAt)[] memory)",
   "function ownerOf(uint256 tokenId) public view returns (address)",
   "function tokenURI(uint256 tokenId) public view returns (string)",
   "event VideoUploaded(uint256 id, string hash, string title, string description, string location, string category, string thumbnailHash, string date, address author, uint256 timestamp)"
@@ -59,31 +60,40 @@ export const getReadOnlyContract = async () => {
   return new ethers.Contract(address, CONTRACT_ABI, provider);
 };
 
+const VIDEO_PAGE_SIZE = 50;
+
 export const loadAllVideos = async () => {
   try {
     const contract = await getReadOnlyContract();
-    
-    // محاولة استخدام getAllVideos
+    const count = (await contract.getVideoCount()).toNumber();
+    const videos = [];
+
+    try {
+      for (let offset = 0; offset < count; offset += VIDEO_PAGE_SIZE) {
+        const page = await contract.getVideos(offset, VIDEO_PAGE_SIZE);
+        videos.push(...page.map(formatVideo));
+      }
+      return videos;
+    } catch (pageError) {
+      console.info('Paged video loading is unavailable; trying legacy read methods.');
+    }
+
     try {
       const allVideos = await contract.getAllVideos();
       return allVideos.map(formatVideo);
-    } catch (error) {
-      console.log('getAllVideos not available, loading individually');
-      
-      // بديل: تحميل الفيديوهات واحدة بواحدة
-      const count = await contract.getVideoCount();
-      const videosArray = [];
-      
-      for (let i = 1; i <= count; i++) {
+    } catch (allVideosError) {
+      console.info('getAllVideos is unavailable; loading videos individually.');
+
+      for (let id = 1; id <= count; id += 1) {
         try {
-          const video = await contract.getVideo(i);
-          videosArray.push(formatVideo(video));
-        } catch (err) {
-          console.error(`Error loading video ${i}:`, err);
+          const video = await contract.getVideo(id);
+          videos.push(formatVideo(video));
+        } catch (error) {
+          console.error(`Error loading video ${id}:`, error);
         }
       }
-      
-      return videosArray;
+
+      return videos;
     }
   } catch (error) {
     console.error('Error loading videos from blockchain:', error);
